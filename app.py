@@ -8,16 +8,18 @@ import google.generativeai as genai
 # ==========================================
 # 1. CONFIGURATION & MASTER PASSWORD
 # ==========================================
-API_KEY = "AQ.Ab8RN6IJl89zjerV51nMcnSZtjz0ybtLwSqk8qzGUBn5qY3q4g"
+MASTER_PIN = "7777"  # Secure PIN for your sister
 
-MASTER_PIN = "7777"  # 🔴 Yeh tumhara secure PIN hai (Isko yaad rakhna)
-
-
-
+# Safe API Key fetching from Streamlit Secrets or Environment
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    API_KEY = "YOUR_API_KEY_HERE"
 
 # Block system conflicts
 os.environ.pop('GOOGLE_APPLICATION_CREDENTIALS', None)
-os.environ['GOOGLE_API_KEY'] = API_KEY
+if API_KEY != "YOUR_API_KEY_HERE":
+    os.environ['GOOGLE_API_KEY'] = API_KEY
 
 # Page Configuration
 st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="centered")
@@ -51,37 +53,12 @@ st.title("⚖️ KANOONCHI")
 st.write("Your Ultimate AIBE Preparation AI")
 
 if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
-    st.warning("👈 Please paste your actual API Key in the code (app.py) where it says 'YOUR_API_KEY_HERE'.")
+    st.warning("⚠️ Please configure your Gemini API key in Streamlit Secrets (`GEMINI_API_KEY`).")
     st.stop()
 
 # Setup AI
 genai.configure(api_key=API_KEY)
-
-# Find Working Model
-if "working_model" not in st.session_state:
-    st.session_state.working_model = None
-
-if st.session_state.working_model is None:
-    with st.spinner("Connecting to Google AI... Please wait..."):
-        try:
-            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            for m_name in available_models:
-                try:
-                    test_model = genai.GenerativeModel(m_name)
-                    test_model.generate_content("hi")
-                    st.session_state.working_model = m_name
-                    break 
-                except Exception:
-                    continue
-        except Exception:
-            st.error("Could not connect to Google API. Please check your internet.")
-            st.stop()
-
-if not st.session_state.working_model:
-    st.error("❌ Error: No working models found for this API Key.")
-    st.stop()
-
-working_model_name = st.session_state.working_model
+working_model_name = "gemini-1.5-flash"  # Fast and reliable model for production
 
 # Session States
 if "t1_q" not in st.session_state: st.session_state.t1_q = None
