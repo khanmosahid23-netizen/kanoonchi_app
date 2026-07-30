@@ -1,4 +1,5 @@
 import os
+import time
 import streamlit as st
 import pdfplumber
 import docx
@@ -60,6 +61,18 @@ if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
 genai.configure(api_key=API_KEY)
 working_model_name = "gemini-3.5-flash"
 
+# Safe Generation wrapper to handle 429 Rate Limits automatically
+def safe_generate_content(model, contents):
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return model.generate_content(contents)
+        except Exception as e:
+            if "429" in str(e) and attempt < max_retries - 1:
+                time.sleep(30) # Wait 30 seconds if quota hits
+            else:
+                raise e
+
 # Session States
 if "t1_q" not in st.session_state: st.session_state.t1_q = None
 if "t1_a" not in st.session_state: st.session_state.t1_a = None
@@ -92,7 +105,7 @@ with tab1:
 
     if uploaded_file is not None:
         if st.button("Generate Test"):
-            with st.spinner(f"Reading notes and generating {q_type}..."):
+            with st.spinner(f"Reading notes and generating {q_type}... (If quota hits, will auto-retry in 30s)"):
                 try:
                     text_data, ext = extract_text_from_file(uploaded_file)
                     model = genai.GenerativeModel(working_model_name)
@@ -104,9 +117,9 @@ with tab1:
                     
                     if ext in ["jpg", "jpeg", "png"]:
                         img = Image.open(uploaded_file)
-                        response = model.generate_content([base_prompt, img])
+                        response = safe_generate_content(model, [base_prompt, img])
                     else:
-                        response = model.generate_content(base_prompt + "\n\nText Data:\n" + text_data[:20000])
+                        response = safe_generate_content(model, base_prompt + "\n\nText Data:\n" + text_data[:20000])
 
                     parts = response.text.split("===ANSWERS===")
                     st.session_state.t1_q = parts[0].strip()
@@ -164,9 +177,9 @@ with tab2:
                     
                     if captured_img:
                         img = Image.open(captured_img)
-                        response = model.generate_content([system_prompt + prompt, img])
+                        response = safe_generate_content(model, [system_prompt + prompt, img])
                     else:
-                        response = model.generate_content(system_prompt + prompt)
+                        response = safe_generate_content(model, system_prompt + prompt)
                         
                     st.markdown(response.text)
                     st.session_state.messages.append({"role": "assistant", "content": response.text})
@@ -192,7 +205,7 @@ with tab3:
                     model = genai.GenerativeModel(working_model_name)
                     prompt = "You are an expert AIBE examiner. I am providing text from past year AIBE question papers. Analyze the trends, important topics, and difficulty level. Based on this analysis, generate a NEW Mock Test containing 10 high-quality MCQs that have a high probability of being asked. Format EXACTLY like this:\nWrite the 10 questions with 4 options each.\nThen, write exactly the word '===ANSWERS===' on a new line.\nThen, provide the answer key with detailed explanations."
                     
-                    response = model.generate_content(prompt + "\n\nPYQ Data:\n" + combined_text[:30000])
+                    response = safe_generate_content(model, prompt + "\n\nPYQ Data:\n" + combined_text[:30000])
                     
                     parts = response.text.split("===ANSWERS===")
                     st.session_state.t3_q = parts[0].strip()
