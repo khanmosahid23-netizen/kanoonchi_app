@@ -8,25 +8,16 @@ import google.generativeai as genai
 # ==========================================
 # 1. CONFIGURATION & MASTER PASSWORD
 # ==========================================
-#API_KEY = st.secrets["GEMINI_API_KEY"]
+API_KEY = "AQ.Ab8RN6IJl89zjerV51nMcnSZtjz0ybtLwSqk8qzGUBn5qY3q4g"
 
 MASTER_PIN = "7777"  # 🔴 Yeh tumhara secure PIN hai (Isko yaad rakhna)
 
 
-# Safe API Key fetching (Streamlit secrets se ya fallback)
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-except:
-    api_key = "YOUR_API_KEY_HERE"
 
-if api_key and api_key != "YOUR_API_KEY_HERE":
-    genai.configure(api_key=api_key)
-else:
-    st.error("⚠️ Please configure your Gemini API key in Streamlit Secrets!")
 
 # Block system conflicts
-#os.environ.pop('GOOGLE_APPLICATION_CREDENTIALS', None)
-#os.environ['GOOGLE_API_KEY'] = API_KEY
+os.environ.pop('GOOGLE_APPLICATION_CREDENTIALS', None)
+os.environ['GOOGLE_API_KEY'] = API_KEY
 
 # Page Configuration
 st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="centered")
