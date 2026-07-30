@@ -8,7 +8,8 @@ import google.generativeai as genai
 # ==========================================
 # 1. CONFIGURATION & MASTER PASSWORD
 # ==========================================
-API_KEY = "AQ.Ab8RN6IJl89zjerV51nMcnSZtjz0ybtLwSqk8qzGUBn5qY3q4g"
+API_KEY = st.secrets["GEMINI_API_KEY"]
+
 MASTER_PIN = "7777"  # 🔴 Yeh tumhara secure PIN hai (Isko yaad rakhna)
 
 # Block system conflicts
