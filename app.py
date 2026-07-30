@@ -44,7 +44,7 @@ if not st.session_state.authenticated:
         else:
             st.error("❌ Incorrect PIN. Try again.")
             
-    st.stop() # Stops app execution until correct PIN is entered
+    st.stop()
 
 # ==========================================
 # 3. MAIN APP (Runs after login)
@@ -56,10 +56,9 @@ if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
     st.warning("⚠️ Please configure your Gemini API key in Streamlit Secrets (`GEMINI_API_KEY`).")
     st.stop()
 
-# Setup AI
+# Setup AI with latest stable model
 genai.configure(api_key=API_KEY)
-working_model_name = "gemini-2.5-flash"
-  # Fast and reliable model for production
+working_model_name = "gemini-2.0-flash"
 
 # Session States
 if "t1_q" not in st.session_state: st.session_state.t1_q = None
