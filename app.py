@@ -58,7 +58,7 @@ if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
 
 # Setup AI
 genai.configure(api_key=API_KEY)
-working_model_name = "gemini-pro"
+working_model_name = "gemini-2.5-flash"
   # Fast and reliable model for production
 
 # Session States
