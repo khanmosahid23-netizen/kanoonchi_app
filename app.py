@@ -8,12 +8,18 @@ import google.generativeai as genai
 # ==========================================
 # 1. CONFIGURATION & MASTER PASSWORD
 # ==========================================
-API_KEY = "AQ.Ab8RN6K02oVu-MVilpm419K_QXtjBEK0XctygAKanW7FAKDd5A"
-MASTER_PIN = "1234"  # 🔴 Yeh tumhara secure PIN hai (Isko yaad rakhna)
+MASTER_PIN = "7777"  # Secure PIN for your sister
+
+# Safe API Key fetching from Streamlit Secrets or Environment
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    API_KEY = "YOUR_API_KEY_HERE"
 
 # Block system conflicts
 os.environ.pop('GOOGLE_APPLICATION_CREDENTIALS', None)
-os.environ['GOOGLE_API_KEY'] = API_KEY
+if API_KEY != "YOUR_API_KEY_HERE":
+    os.environ['GOOGLE_API_KEY'] = API_KEY
 
 # Page Configuration
 st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="centered")
@@ -28,7 +34,7 @@ if not st.session_state.authenticated:
     st.title("🔐 KANOONCHI - Secure Login")
     st.write("Enter the secure access PIN to unlock the app for your sister.")
     
-    entered_pin = st.text_input("Enter 4-Digit PIN (Hint: 1234)", type="password")
+    entered_pin = st.text_input("Enter 4-Digit PIN ", type="password")
     
     if st.button("Login"):
         if entered_pin == MASTER_PIN:
@@ -38,7 +44,7 @@ if not st.session_state.authenticated:
         else:
             st.error("❌ Incorrect PIN. Try again.")
             
-    st.stop() # Stops app execution until correct PIN is entered
+    st.stop()
 
 # ==========================================
 # 3. MAIN APP (Runs after login)
@@ -47,37 +53,12 @@ st.title("⚖️ KANOONCHI")
 st.write("Your Ultimate AIBE Preparation AI")
 
 if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
-    st.warning("👈 Please paste your actual API Key in the code (app.py) where it says 'YOUR_API_KEY_HERE'.")
+    st.warning("⚠️ Please configure your Gemini API key in Streamlit Secrets (`GEMINI_API_KEY`).")
     st.stop()
 
-# Setup AI
+# Setup AI with the latest stable model
 genai.configure(api_key=API_KEY)
-
-# Find Working Model
-if "working_model" not in st.session_state:
-    st.session_state.working_model = None
-
-if st.session_state.working_model is None:
-    with st.spinner("Connecting to Google AI... Please wait..."):
-        try:
-            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            for m_name in available_models:
-                try:
-                    test_model = genai.GenerativeModel(m_name)
-                    test_model.generate_content("hi")
-                    st.session_state.working_model = m_name
-                    break 
-                except Exception:
-                    continue
-        except Exception:
-            st.error("Could not connect to Google API. Please check your internet.")
-            st.stop()
-
-if not st.session_state.working_model:
-    st.error("❌ Error: No working models found for this API Key.")
-    st.stop()
-
-working_model_name = st.session_state.working_model
+working_model_name = "gemini-3.5-flash"
 
 # Session States
 if "t1_q" not in st.session_state: st.session_state.t1_q = None
