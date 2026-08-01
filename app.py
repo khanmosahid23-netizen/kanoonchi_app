@@ -1,26 +1,22 @@
 import os
-import time
 import streamlit as st
 import pdfplumber
 import docx
 from PIL import Image
-import google.generativeai as genai
+import base64
+import io
+from groq import Groq
 
 # ==========================================
 # 1. CONFIGURATION & MASTER PASSWORD
 # ==========================================
-MASTER_PIN = "7777"  # Secure PIN for your sister
+MASTER_PIN = "7777"  # Secure PIN for the app
 
-# Safe API Key fetching from Streamlit Secrets or Environment
+# Safe API Key fetching from Streamlit Secrets
 try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
+    API_KEY = st.secrets["GROQ_API_KEY"]
 except Exception:
     API_KEY = "YOUR_API_KEY_HERE"
-
-# Block system conflicts
-os.environ.pop('GOOGLE_APPLICATION_CREDENTIALS', None)
-if API_KEY != "YOUR_API_KEY_HERE":
-    os.environ['GOOGLE_API_KEY'] = API_KEY
 
 # Page Configuration
 st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="centered")
@@ -33,7 +29,7 @@ if "authenticated" not in st.session_state:
 
 if not st.session_state.authenticated:
     st.title("🔐 KANOONCHI - Secure Login")
-    st.write("Enter the secure access PIN to unlock the app for your sister.")
+    st.write("Enter the secure access PIN to unlock the app.")
     
     entered_pin = st.text_input("Enter 4-Digit PIN ", type="password")
     
@@ -54,24 +50,43 @@ st.title("⚖️ KANOONCHI")
 st.write("Your Ultimate AIBE Preparation AI")
 
 if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
-    st.warning("⚠️ Please configure your Gemini API key in Streamlit Secrets (`GEMINI_API_KEY`).")
+    st.warning("⚠️ Please configure your Groq API key in Streamlit Secrets (`GROQ_API_KEY`).")
     st.stop()
 
-# Setup AI with the latest stable model
-genai.configure(api_key=API_KEY)
-working_model_name = "gemini-3.5-flash"
+# ==========================================
+# 4. GROQ API HANDLER FUNCTION
+# ==========================================
+def pil_to_base64(img):
+    buffered = io.BytesIO()
+    img.convert('RGB').save(buffered, format="JPEG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-# Safe Generation wrapper to handle 429 Rate Limits automatically
-def safe_generate_content(model, contents):
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            return model.generate_content(contents)
-        except Exception as e:
-            if "429" in str(e) and attempt < max_retries - 1:
-                time.sleep(30) # Wait 30 seconds if quota hits
-            else:
-                raise e
+def generate_groq_response(prompt, img=None):
+    client = Groq(api_key=API_KEY)
+    
+    if img:
+        base64_img = pil_to_base64(img)
+        # Vision model for camera and image uploads
+        model_name = "llama-3.2-11b-vision-preview" 
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
+                ]
+            }
+        ]
+    else:
+        # Fast text model for documents and chat
+        model_name = "llama-3.3-70b-versatile" 
+        messages = [{"role": "user", "content": prompt}]
+        
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=messages
+    )
+    return response.choices[0].message.content
 
 # Session States
 if "t1_q" not in st.session_state: st.session_state.t1_q = None
@@ -105,10 +120,9 @@ with tab1:
 
     if uploaded_file is not None:
         if st.button("Generate Test"):
-            with st.spinner(f"Reading notes and generating {q_type}... (If quota hits, will auto-retry in 30s)"):
+            with st.spinner(f"Reading notes and generating {q_type}..."):
                 try:
                     text_data, ext = extract_text_from_file(uploaded_file)
-                    model = genai.GenerativeModel(working_model_name)
                     
                     if "MCQ" in q_type:
                         base_prompt = "You are an expert Law professor. Based on the provided text, generate 5 MCQs for AIBE prep. Format EXACTLY like this:\nWrite the 5 questions with 4 options each.\nThen, write exactly the word '===ANSWERS===' on a new line.\nThen, provide the correct answers with explanations."
@@ -117,13 +131,13 @@ with tab1:
                     
                     if ext in ["jpg", "jpeg", "png"]:
                         img = Image.open(uploaded_file)
-                        response = safe_generate_content(model, [base_prompt, img])
+                        response_text = generate_groq_response(base_prompt, img)
                     else:
-                        response = safe_generate_content(model, base_prompt + "\n\nText Data:\n" + text_data[:20000])
+                        response_text = generate_groq_response(base_prompt + "\n\nText Data:\n" + text_data[:20000])
 
-                    parts = response.text.split("===ANSWERS===")
+                    parts = response_text.split("===ANSWERS===")
                     st.session_state.t1_q = parts[0].strip()
-                    st.session_state.t1_a = parts[1].strip() if len(parts) > 1 else "Answer formatting error. Raw output:\n" + response.text
+                    st.session_state.t1_a = parts[1].strip() if len(parts) > 1 else "Answer formatting error. Raw output:\n" + response_text
                     st.session_state.t1_show = False
                     
                 except Exception as e:
@@ -172,17 +186,16 @@ with tab2:
         with st.chat_message("assistant"):
             with st.spinner("Analyzing legal concept and book context..."):
                 try:
-                    model = genai.GenerativeModel(working_model_name)
                     system_prompt = "You are Kanoonchi, an expert AI Legal Tutor for Indian law students preparing for AIBE. Explain concepts clearly and simply. User's question: "
                     
                     if captured_img:
                         img = Image.open(captured_img)
-                        response = safe_generate_content(model, [system_prompt + prompt, img])
+                        response_text = generate_groq_response(system_prompt + prompt, img)
                     else:
-                        response = safe_generate_content(model, system_prompt + prompt)
+                        response_text = generate_groq_response(system_prompt + prompt)
                         
-                    st.markdown(response.text)
-                    st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    st.markdown(response_text)
+                    st.session_state.messages.append({"role": "assistant", "content": response_text})
                 except Exception as e:
                     st.error(f"Chat Error: {e}")
 
@@ -202,14 +215,13 @@ with tab3:
                         txt, _ = extract_text_from_file(pyq_file)
                         combined_text += txt + "\n"
 
-                    model = genai.GenerativeModel(working_model_name)
                     prompt = "You are an expert AIBE examiner. I am providing text from past year AIBE question papers. Analyze the trends, important topics, and difficulty level. Based on this analysis, generate a NEW Mock Test containing 10 high-quality MCQs that have a high probability of being asked. Format EXACTLY like this:\nWrite the 10 questions with 4 options each.\nThen, write exactly the word '===ANSWERS===' on a new line.\nThen, provide the answer key with detailed explanations."
                     
-                    response = safe_generate_content(model, prompt + "\n\nPYQ Data:\n" + combined_text[:30000])
+                    response_text = generate_groq_response(prompt + "\n\nPYQ Data:\n" + combined_text[:30000])
                     
-                    parts = response.text.split("===ANSWERS===")
+                    parts = response_text.split("===ANSWERS===")
                     st.session_state.t3_q = parts[0].strip()
-                    st.session_state.t3_a = parts[1].strip() if len(parts) > 1 else "Answer formatting error. Raw output:\n" + response.text
+                    st.session_state.t3_a = parts[1].strip() if len(parts) > 1 else "Answer formatting error. Raw output:\n" + response_text
                     st.session_state.t3_show = False
                     
                 except Exception as e:
