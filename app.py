@@ -78,8 +78,8 @@ def generate_groq_response(prompt, img=None):
             }
         ]
     else:
-        # Fast text model for documents and chat
-        model_name = "llama-3.3-70b-versatile" 
+        # Lighter model with much higher token limits for heavy PDFs
+        model_name = "llama-3.1-8b-instant" 
         messages = [{"role": "user", "content": prompt}]
         
     response = client.chat.completions.create(
@@ -100,13 +100,25 @@ if "t3_show" not in st.session_state: st.session_state.t3_show = False
 def extract_text_from_file(uploaded_file):
     text = ""
     ext = uploaded_file.name.split('.')[-1].lower()
+    
     if ext == "pdf":
         with pdfplumber.open(uploaded_file) as pdf:
-            for page in pdf.pages: 
-                text += page.extract_text() + "\n"
+            # Crash Fix: Limit to first 10 pages only
+            for i, page in enumerate(pdf.pages):
+                if i >= 10:
+                    break
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+                    
     elif ext == "docx":
         doc = docx.Document(uploaded_file)
-        text = "\n".join([para.text for para in doc.paragraphs])
+        # Crash Fix: Limit to first 200 paragraphs only
+        for i, para in enumerate(doc.paragraphs):
+            if i >= 200: 
+                break
+            text += para.text + "\n"
+            
     return text, ext
 
 # App Tabs
@@ -133,7 +145,8 @@ with tab1:
                         img = Image.open(uploaded_file)
                         response_text = generate_groq_response(base_prompt, img)
                     else:
-                        response_text = generate_groq_response(base_prompt + "\n\nText Data:\n" + text_data[:20000])
+                        # Error 413 Fix: Cap text limit to 15000 characters
+                        response_text = generate_groq_response(base_prompt + "\n\nText Data:\n" + text_data[:15000])
 
                     parts = response_text.split("===ANSWERS===")
                     st.session_state.t1_q = parts[0].strip()
@@ -217,7 +230,8 @@ with tab3:
 
                     prompt = "You are an expert AIBE examiner. I am providing text from past year AIBE question papers. Analyze the trends, important topics, and difficulty level. Based on this analysis, generate a NEW Mock Test containing 10 high-quality MCQs that have a high probability of being asked. Format EXACTLY like this:\nWrite the 10 questions with 4 options each.\nThen, write exactly the word '===ANSWERS===' on a new line.\nThen, provide the answer key with detailed explanations."
                     
-                    response_text = generate_groq_response(prompt + "\n\nPYQ Data:\n" + combined_text[:30000])
+                    # Error 413 Fix: Cap text limit to 15000 characters
+                    response_text = generate_groq_response(prompt + "\n\nPYQ Data:\n" + combined_text[:15000])
                     
                     parts = response_text.split("===ANSWERS===")
                     st.session_state.t3_q = parts[0].strip()
