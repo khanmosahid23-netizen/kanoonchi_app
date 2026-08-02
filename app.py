@@ -205,9 +205,9 @@ with tab2:
                     file_path = os.path.join(LIB_FOLDER, selected_book)
                     ref_text, _ = extract_text(file_path, limit_pages=30) 
                     st.session_state.reference_context = ref_text
-                    st.success(f"✅ '{selected_book}' Loaded! Ask questions now.")
+                    st.success(f"✅ '{selected_book}' Loaded into AI Brain! You can ask questions now.")
     else:
-        st.info("📂 The 'kanoonchi_library' folder is empty. Upload books to this folder using VS Code to use the permanent library.")
+        st.info("📂 Books found in library folder. Select from dropdown above.")
 
     st.divider()
 
