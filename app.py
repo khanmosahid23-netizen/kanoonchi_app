@@ -141,11 +141,11 @@ with tab1:
                 try:
                     if uploaded_file.name.split('.')[-1].lower() in ["jpg", "jpeg", "png"]:
                         img = Image.open(uploaded_file)
-                        base_prompt = f"You are a strict law professor. Generate exactly {num_q} MCQs for AIBE from the image. Return ONLY a valid JSON array: [{{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct_answer\": \"A\", \"explanation\": \"...\"}}]" if "MCQ" in q_type else f"Generate {num_q} Detailed Long Analytical Questions based on the image.\nQ1: ...\n===ANSWERS===\nAns 1: ..."
+                        base_prompt = f"You are a strict law professor. Generate exactly {num_q} MCQs for AIBE from the image. Each option must include the full description text (e.g. ['A. Option text here', 'B. Option text here', ...]). Return ONLY a valid JSON array: [{{\"question\": \"...\", \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"correct_answer\": \"A\", \"explanation\": \"...\"}}]" if "MCQ" in q_type else f"Generate {num_q} Detailed Long Analytical Questions based on the image.\nQ1: ...\n===ANSWERS===\nAns 1: ..."
                         response_text = generate_groq_response(base_prompt, img=img)
                     else:
                         text_data, _ = extract_text(uploaded_file)
-                        base_prompt = f"You are a strict law professor. Generate exactly {num_q} MCQs for AIBE from the text. Return ONLY a valid JSON array: [{{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct_answer\": \"A\", \"explanation\": \"...\"}}]" if "MCQ" in q_type else f"Generate {num_q} Detailed Long Analytical Questions based on the text.\nQ1: ...\n===ANSWERS===\nAns 1: ..."
+                        base_prompt = f"You are a strict law professor. Generate exactly {num_q} MCQs for AIBE from the text. Each option must include the full description text (e.g. ['A. Option text here', 'B. Option text here', ...]). Return ONLY a valid JSON array: [{{\"question\": \"...\", \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"correct_answer\": \"A\", \"explanation\": \"...\"}}]" if "MCQ" in q_type else f"Generate {num_q} Detailed Long Analytical Questions based on the text.\nQ1: ...\n===ANSWERS===\nAns 1: ..."
                         response_text = generate_groq_response(base_prompt + "\n\nText:\n" + text_data[:15000])
 
                     if "MCQ" in q_type:
@@ -175,14 +175,14 @@ with tab1:
             
             if i in st.session_state.mcq_answers_t1:
                 user_ans = st.session_state.mcq_answers_t1[i]
-                correct_ans = str(item['correct_answer']).strip()
+                correct_ans = str(item['correct_answer']).strip().upper()
                 correct_text = correct_ans
                 if correct_ans in ['A', 'B', 'C', 'D']:
                     idx = ord(correct_ans) - 65
                     if idx < len(item['options']):
                         correct_text = item['options'][idx]
 
-                if user_ans == correct_text or user_ans.startswith(correct_text):
+                if user_ans == correct_text or user_ans.startswith(correct_ans):
                     st.success(f"✅ Correct! \n\n**Explanation:** {item['explanation']}")
                 else:
                     st.error(f"❌ Wrong! Correct answer is: **{correct_text}** \n\n**Explanation:** {item['explanation']}")
@@ -194,13 +194,12 @@ with tab1:
         with st.expander("👁️ Show Detailed Answers"):
             st.markdown(format_long_text(st.session_state.t1_long_a))
 
-# --- TAB 2: AI TUTOR & PERMANENT LIBRARY CHAT ---
+# --- TAB 2: AI TUTOR & LIBRARY CHAT ---
 with tab2:
     st.header("💬 AI Tutor & Library Chat")
     
     st.markdown("### 🏛️ Library & Direct Chat Upload")
     
-    # Library books detection
     available_books = []
     if os.path.exists(LIB_FOLDER):
         available_books.extend([os.path.join(LIB_FOLDER, f) for f in os.listdir(LIB_FOLDER) if f.endswith(('.pdf', '.docx'))])
@@ -235,8 +234,6 @@ with tab2:
                     st.success("✅ All library books loaded!")
 
     st.markdown("---")
-    
-    # Direct Chat attachments (PDF, DOCX, Image, Camera)
     st.markdown("### 📎 Attach File or Photo directly to Chat")
     chat_file = st.file_uploader("Upload PDF, DOCX or Image for instant chat context", type=["pdf", "docx", "png", "jpg", "jpeg"], key="chat_file_up")
     
@@ -262,7 +259,6 @@ with tab2:
             if chat_file:
                 st.write(f"📁 Attached File: {chat_file.name}")
 
-        # Process attached file text if any
         attachment_text = ""
         attachment_img = None
 
@@ -285,11 +281,9 @@ with tab2:
             with st.spinner("Analyzing with AI Brain..."):
                 system_prompt = "You are Kanoonchi, an expert AI Legal Tutor for Indian law students. "
                 
-                # Append Library Context
                 if "reference_context" in st.session_state and st.session_state.reference_context:
                     system_prompt += f"\nLibrary Reference Data:\n{st.session_state.reference_context[:10000]}\n"
                 
-                # Append Direct Chat File Context
                 if attachment_text:
                     system_prompt += f"\nDirect Attached File Data:\n{attachment_text[:10000]}\n"
 
@@ -322,7 +316,7 @@ with tab3:
                         txt, _ = extract_text(pyq_file, limit_pages=5)
                         combined_text += txt + "\n"
 
-                    prompt = f"Act as an AIBE examiner. Based on the provided past papers, generate {mock_num_q} highly probable NEW MCQs. Return ONLY a valid JSON array: [{{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct_answer\": \"A\", \"explanation\": \"...\"}}]"
+                    prompt = f"Act as an AIBE examiner. Based on the provided past papers, generate {mock_num_q} highly probable NEW MCQs. Each option must include the full description text (e.g. ['A. Option text here', 'B. Option text here', ...]). Return ONLY a valid JSON array: [{{\"question\": \"...\", \"options\": [\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"], \"correct_answer\": \"A\", \"explanation\": \"...\"}}]"
                     
                     response_text = generate_groq_response(prompt + "\n\nPYQ Data:\n" + combined_text[:15000])
                     parsed_json = extract_json_from_text(response_text)
@@ -350,7 +344,7 @@ with tab3:
             
             if i in st.session_state.mcq_answers_t3:
                 user_ans = st.session_state.mcq_answers_t3[i]
-                correct_ans = str(item['correct_answer']).strip()
+                correct_ans = str(item['correct_answer']).strip().upper()
                 correct_text = correct_ans
                 if correct_ans in ['A', 'B', 'C', 'D']:
                     idx = ord(correct_ans) - 65
