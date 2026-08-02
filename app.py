@@ -69,7 +69,7 @@ def generate_groq_response(prompt, img=None, json_mode=False):
     )
     return response.choices[0].message.content
 
-def extract_text_from_file(uploaded_file, limit_pages=10):
+def extract_text_from_file(uploaded_file, limit_pages=15):
     text = ""
     ext = uploaded_file.name.split('.')[-1].lower()
     if ext == "pdf":
@@ -86,16 +86,24 @@ def extract_text_from_file(uploaded_file, limit_pages=10):
     return text, ext
 
 def extract_json_from_text(text):
-    """Clean markdown wrapping from LLM JSON output"""
     text = text.strip()
     match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
     if match: return json.loads(match.group(1))
-    
     match = re.search(r'\[\s*\{.*?\}\s*\]', text, re.DOTALL)
     if match: return json.loads(match.group(0))
     return None
 
-# Initializing interactive states
+def format_long_text(text):
+    """
+    SPACING FIX: Automatically formats clustered text by adding double line 
+    breaks and bold text for Question and Answer markers (e.g., Q1:, Ans 1:).
+    """
+    # Fix for Q1:, Question 1:, Q 1:
+    text = re.sub(r'(Q(?:uestion)?\s*\d+\s*:)', r'\n\n**\1** ', text, flags=re.IGNORECASE)
+    # Fix for Ans 1:, Answer 1:, A 1:
+    text = re.sub(r'(A(?:ns)?(?:wer)?\s*\d+\s*:)', r'\n\n**\1** ', text, flags=re.IGNORECASE)
+    return text.strip()
+
 if 'mcq_answers_t1' not in st.session_state: st.session_state.mcq_answers_t1 = {}
 if 'mcq_answers_t3' not in st.session_state: st.session_state.mcq_answers_t3 = {}
 
@@ -125,7 +133,7 @@ with tab1:
                     if "MCQ" in q_type:
                         base_prompt = f"You are a strict law professor. Generate exactly {num_q} MCQs for AIBE from the text. You MUST return ONLY a valid JSON array in this exact format: [{{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct_answer\": \"A\", \"explanation\": \"...\"}}]"
                     else:
-                        base_prompt = f"Generate {num_q} Detailed Long Analytical Questions based on the text. Format exactly like this:\nQ1: ...\n===ANSWERS===\nAns 1: ..."
+                        base_prompt = f"Generate {num_q} Detailed Long Analytical Questions based on the text. Format exactly like this:\nQ1: ...\nQ2: ...\n===ANSWERS===\nAns 1: ...\nAns 2: ..."
                     
                     if ext in ["jpg", "jpeg", "png"]:
                         img = Image.open(uploaded_file)
@@ -155,44 +163,50 @@ with tab1:
         for i, item in enumerate(st.session_state.t1_mcqs):
             st.markdown(f"**Q{i+1}: {item['question']}**")
             
-            # Make 4 columns for buttons
             cols = st.columns(4)
             for j, option in enumerate(item['options']):
                 button_key = f"t1_btn_{i}_{j}"
-                
-                # Check if this option was clicked
                 if cols[j].button(option, key=button_key):
                     st.session_state.mcq_answers_t1[i] = option
             
-            # Show Result if answered
             if i in st.session_state.mcq_answers_t1:
                 user_ans = st.session_state.mcq_answers_t1[i]
-                if user_ans == item['correct_answer']:
+                correct_ans = str(item['correct_answer']).strip()
+                
+                # Smart Check: Map 'A', 'B', 'C', 'D' to actual option text
+                correct_text = correct_ans
+                if correct_ans in ['A', 'B', 'C', 'D']:
+                    idx = ord(correct_ans) - 65
+                    if idx < len(item['options']):
+                        correct_text = item['options'][idx]
+
+                if user_ans == correct_text or user_ans.startswith(correct_ans):
                     st.success(f"✅ Correct! \n\n**Explanation:** {item['explanation']}")
                 else:
-                    st.error(f"❌ Wrong! Correct answer is: **{item['correct_answer']}** \n\n**Explanation:** {item['explanation']}")
+                    st.error(f"❌ Wrong! Correct answer is: **{correct_text}** \n\n**Explanation:** {item['explanation']}")
             st.divider()
 
     # Long Question Rendering
     if "t1_long_q" in st.session_state and "Long" in q_type:
         st.markdown("### 📝 Long Questions")
-        st.write(st.session_state.t1_long_q)
+        # Apply the spacing formatter function
+        st.markdown(format_long_text(st.session_state.t1_long_q))
         with st.expander("👁️ Show Detailed Answers"):
-            st.write(st.session_state.t1_long_a)
+            st.markdown(format_long_text(st.session_state.t1_long_a))
 
 # --- TAB 2: AI TUTOR & REFERENCE LIBRARY ---
 with tab2:
     st.header("Interactive Doubt Solver & Reference Library")
     
-    # 📚 REFERENCE LIBRARY FEATURE
+    # 📚 REFERENCE LIBRARY FEATURE (Session Based)
     with st.expander("📚 Add Reference Book (Bare Acts/Notes)"):
         ref_file = st.file_uploader("Upload a reference PDF to ground Kanoonchi's answers", type=["pdf", "docx"], key="ref_up")
         if st.button("Load Reference Book"):
             if ref_file:
                 with st.spinner("Loading reference book into Kanoonchi's brain..."):
-                    ref_text, _ = extract_text_from_file(ref_file, limit_pages=30) # Extract up to 30 pages for reference context
+                    ref_text, _ = extract_text_from_file(ref_file, limit_pages=30) 
                     st.session_state.reference_context = ref_text
-                    st.success("Reference Book Loaded! Ask questions now.")
+                    st.success("✅ Reference Book Loaded! Ask questions now.")
             else:
                 st.warning("Please upload a file first.")
 
@@ -221,7 +235,6 @@ with tab2:
             with st.spinner("Analyzing..."):
                 system_prompt = "You are Kanoonchi, an expert AI Legal Tutor for Indian law students. "
                 
-                # INJECT REFERENCE BOOK IF IT EXISTS
                 if "reference_context" in st.session_state and st.session_state.reference_context:
                     system_prompt += f"\nAlways prioritize and reference this library data if relevant to the user's question:\n[LIBRARY DATA START]\n{st.session_state.reference_context[:10000]}\n[LIBRARY DATA END]\n\nUser Question: "
                 else:
@@ -286,11 +299,20 @@ with tab3:
             
             if i in st.session_state.mcq_answers_t3:
                 user_ans = st.session_state.mcq_answers_t3[i]
-                if user_ans == item['correct_answer']:
+                correct_ans = str(item['correct_answer']).strip()
+                
+                # Smart Check: Map 'A', 'B', 'C', 'D' to actual option text
+                correct_text = correct_ans
+                if correct_ans in ['A', 'B', 'C', 'D']:
+                    idx = ord(correct_ans) - 65
+                    if idx < len(item['options']):
+                        correct_text = item['options'][idx]
+
+                if user_ans == correct_text or user_ans.startswith(correct_ans):
                     st.success(f"✅ Correct! \n\n**Explanation:** {item['explanation']}")
                     score += 1
                 else:
-                    st.error(f"❌ Wrong! Correct answer is: **{item['correct_answer']}** \n\n**Explanation:** {item['explanation']}")
+                    st.error(f"❌ Wrong! Correct answer is: **{correct_text}** \n\n**Explanation:** {item['explanation']}")
             st.divider()
             
         # Show Score if all answered
