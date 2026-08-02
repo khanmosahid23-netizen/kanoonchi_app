@@ -193,21 +193,33 @@ with tab1:
 with tab2:
     st.header("Interactive Doubt Solver & Permanent Library")
     
-    st.markdown("### 🏛️ Kanoonchi Master Library")
+    st.markdown("### 🏛️ Kanoonchi Master Library Selection")
     available_books = [f for f in os.listdir(LIB_FOLDER) if f.endswith(('.pdf', '.docx'))]
     
     if available_books:
-        selected_book = st.selectbox("Select a Bare Act or Case File for AI Reference:", ["None (General Chat)"] + available_books)
+        # User selection options: Manual dropdown or Reference from All Books
+        selection_mode = st.radio("Choose Reference Mode:", ["Select Specific Book", "Reference from All Books in Library"])
         
-        if selected_book != "None (General Chat)":
+        if selection_mode == "Select Specific Book":
+            selected_book = st.selectbox("Choose a specific book/case file:", available_books)
             if st.button(f"Load '{selected_book}' into AI Brain"):
-                with st.spinner("Loading permanent library book..."):
+                with st.spinner("Loading selected book..."):
                     file_path = os.path.join(LIB_FOLDER, selected_book)
                     ref_text, _ = extract_text(file_path, limit_pages=30) 
                     st.session_state.reference_context = ref_text
-                    st.success(f"✅ '{selected_book}' Loaded into AI Brain! You can ask questions now.")
+                    st.success(f"✅ '{selected_book}' Loaded successfully!")
+        else:
+            if st.button("Load & Reference ALL Books"):
+                with st.spinner("Compiling and loading all books from library..."):
+                    combined_all_text = ""
+                    for book in available_books:
+                        f_path = os.path.join(LIB_FOLDER, book)
+                        txt, _ = extract_text(f_path, limit_pages=15)
+                        combined_all_text += f"\n--- [BOOK: {book}] ---\n" + txt
+                    st.session_state.reference_context = combined_all_text
+                    st.success("✅ All books loaded together into AI Brain!")
     else:
-        st.info("📂 Books found in library folder. Select from dropdown above.")
+        st.info("📂 Folder is empty. Put books inside 'kanoonchi_library' folder.")
 
     st.divider()
 
@@ -235,7 +247,7 @@ with tab2:
                 system_prompt = "You are Kanoonchi, an expert AI Legal Tutor for Indian law students. "
                 
                 if "reference_context" in st.session_state and st.session_state.reference_context:
-                    system_prompt += f"\nAlways prioritize and reference this library data if relevant to the user's question:\n[LIBRARY DATA START]\n{st.session_state.reference_context[:10000]}\n[LIBRARY DATA END]\n\nUser Question: "
+                    system_prompt += f"\nAlways prioritize and reference this library data if relevant to the user's question:\n[LIBRARY DATA START]\n{st.session_state.reference_context[:15000]}\n[LIBRARY DATA END]\n\nUser Question: "
                 else:
                     system_prompt += "User Question: "
 
@@ -302,7 +314,7 @@ with tab3:
                     if idx < len(item['options']):
                         correct_text = item['options'][idx]
 
-                if user_ans == correct_text or user_ans.startswith(correct_ans):
+                if user_ans == correct_text or user_ans.startswith(correct_text):
                     st.success(f"✅ Correct! \n\n**Explanation:** {item['explanation']}")
                     score += 1
                 else:
