@@ -53,16 +53,21 @@ def pil_to_base64(img):
 
 def generate_groq_response(prompt, img=None, json_mode=False):
     client = Groq(api_key=API_KEY)
-    # Updated to use versatile model for both text and images to avoid decommissioning error
     model_name = "llama-3.3-70b-versatile" 
     
-    messages = [{"role": "user", "content": prompt}]
     if img:
         base64_img = pil_to_base64(img)
-        messages[0]["content"] = [
-            {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
+                ]
+            }
         ]
+    else:
+        messages = [{"role": "user", "content": prompt}]
         
     response = client.chat.completions.create(
         model=model_name,
@@ -116,7 +121,7 @@ if not os.path.exists(LIB_FOLDER):
 # ==========================================
 # 3. MAIN APP TABS
 # ==========================================
-tab1, tab2, tab3 = st.tabs(["📄 Notes to Interactive Test", "💬 AI Tutor & Permanent Library", "📝 Custom PYQ Mock Test"])
+tab1, tab2, tab3 = st.tabs(["📄 Notes to Interactive Test", "💬 AI Tutor & Library Chat", "📝 Custom PYQ Mock Test"])
 
 # --- TAB 1: NOTES ANALYZER ---
 with tab1:
@@ -189,12 +194,13 @@ with tab1:
         with st.expander("👁️ Show Detailed Answers"):
             st.markdown(format_long_text(st.session_state.t1_long_a))
 
-# --- TAB 2: AI TUTOR & PERMANENT LIBRARY ---
+# --- TAB 2: AI TUTOR & PERMANENT LIBRARY CHAT ---
 with tab2:
-    st.header("Interactive Doubt Solver & Library")
+    st.header("💬 AI Tutor & Library Chat")
     
-    st.markdown("### 🏛️ Kanoonchi Master Library & Direct Upload")
+    st.markdown("### 🏛️ Library & Direct Chat Upload")
     
+    # Library books detection
     available_books = []
     if os.path.exists(LIB_FOLDER):
         available_books.extend([os.path.join(LIB_FOLDER, f) for f in os.listdir(LIB_FOLDER) if f.endswith(('.pdf', '.docx'))])
@@ -206,37 +212,36 @@ with tab2:
 
     if available_books:
         book_names = [os.path.basename(b) for b in available_books]
-        selection_mode = st.radio("Choose Library Mode:", ["Select Specific Book", "Reference from All Books"])
+        selection_mode = st.radio("Choose Reference Source:", ["Select Specific Book from Library", "Reference from ALL Books in Library"])
         
-        if selection_mode == "Select Specific Book":
-            selected_book_name = st.selectbox("Choose a specific book/case file:", book_names)
+        if selection_mode == "Select Specific Book from Library":
+            selected_book_name = st.selectbox("Choose book:", book_names)
             selected_book_path = next((b for b in available_books if os.path.basename(b) == selected_book_name), available_books[0])
             
             if st.button(f"Load '{selected_book_name}' into AI Brain"):
                 with st.spinner(f"Loading '{selected_book_name}'..."):
                     ref_text, _ = extract_text(selected_book_path, limit_pages=30) 
                     st.session_state.reference_context = ref_text
-                    st.success(f"✅ '{selected_book_name}' Loaded successfully into AI Brain!")
+                    st.success(f"✅ '{selected_book_name}' Loaded!")
         else:
             if st.button("Load & Reference ALL Library Books"):
-                with st.spinner("Compiling and loading all books..."):
+                with st.spinner("Compiling all books..."):
                     combined_all_text = ""
                     for b_path in available_books:
                         b_name = os.path.basename(b_path)
                         txt, _ = extract_text(b_path, limit_pages=15)
                         combined_all_text += f"\n--- [BOOK: {b_name}] ---\n" + txt
                     st.session_state.reference_context = combined_all_text
-                    st.success("✅ All books loaded together into AI Brain!")
+                    st.success("✅ All library books loaded!")
 
     st.markdown("---")
-    st.markdown("### 📂 Or Directly Upload Book Here")
-    direct_book = st.file_uploader("Upload PDF/DOCX for instant reference", type=["pdf", "docx"], key="direct_lib_up")
-    if direct_book:
-        if st.button("Load Uploaded Book into AI Brain"):
-            with st.spinner("Reading uploaded file..."):
-                ref_text, _ = extract_text(direct_book, limit_pages=30)
-                st.session_state.reference_context = ref_text
-                st.success(f"✅ '{direct_book.name}' Loaded successfully into AI Brain!")
+    
+    # Direct Chat attachments (PDF, DOCX, Image, Camera)
+    st.markdown("### 📎 Attach File or Photo directly to Chat")
+    chat_file = st.file_uploader("Upload PDF, DOCX or Image for instant chat context", type=["pdf", "docx", "png", "jpg", "jpeg"], key="chat_file_up")
+    
+    use_camera = st.checkbox("📸 Click live photo from camera")
+    captured_img = st.camera_input("Take a picture") if use_camera else None
 
     st.divider()
 
@@ -249,31 +254,52 @@ with tab2:
             if "image" in message and message["image"]:
                 st.image(message["image"], width=300)
 
-    use_camera = st.checkbox("📸 Click photo from camera for doubt")
-    captured_img = st.camera_input("Take a picture") if use_camera else None
-
     if prompt := st.chat_input("Type your legal doubt..."):
         with st.chat_message("user"):
             st.markdown(prompt)
-            if captured_img: st.image(captured_img, width=300)
+            if captured_img: 
+                st.image(captured_img, width=300)
+            if chat_file:
+                st.write(f"📁 Attached File: {chat_file.name}")
 
-        st.session_state.messages.append({"role": "user", "content": prompt, "image": captured_img})
+        # Process attached file text if any
+        attachment_text = ""
+        attachment_img = None
+
+        if captured_img:
+            attachment_img = Image.open(captured_img)
+        elif chat_file:
+            ext = chat_file.name.split('.')[-1].lower()
+            if ext in ["jpg", "jpeg", "png"]:
+                attachment_img = Image.open(chat_file)
+            else:
+                attachment_text, _ = extract_text(chat_file, limit_pages=15)
+
+        st.session_state.messages.append({
+            "role": "user", 
+            "content": prompt, 
+            "image": captured_img if captured_img else (attachment_img if chat_file and chat_file.name.split('.')[-1].lower() in ["jpg", "jpeg", "png"] else None)
+        })
 
         with st.chat_message("assistant"):
-            with st.spinner("Analyzing..."):
+            with st.spinner("Analyzing with AI Brain..."):
                 system_prompt = "You are Kanoonchi, an expert AI Legal Tutor for Indian law students. "
                 
+                # Append Library Context
                 if "reference_context" in st.session_state and st.session_state.reference_context:
-                    system_prompt += f"\nAlways prioritize and reference this library data if relevant to the user's question:\n[LIBRARY DATA START]\n{st.session_state.reference_context[:15000]}\n[LIBRARY DATA END]\n\nUser Question: "
-                else:
-                    system_prompt += "User Question: "
+                    system_prompt += f"\nLibrary Reference Data:\n{st.session_state.reference_context[:10000]}\n"
+                
+                # Append Direct Chat File Context
+                if attachment_text:
+                    system_prompt += f"\nDirect Attached File Data:\n{attachment_text[:10000]}\n"
+
+                system_prompt += f"\nUser Question: {prompt}"
 
                 try:
-                    if captured_img:
-                        img = Image.open(captured_img)
-                        response_text = generate_groq_response(system_prompt + prompt, img=img)
+                    if attachment_img:
+                        response_text = generate_groq_response(system_prompt, img=attachment_img)
                     else:
-                        response_text = generate_groq_response(system_prompt + prompt)
+                        response_text = generate_groq_response(system_prompt)
                         
                     st.markdown(response_text)
                     st.session_state.messages.append({"role": "assistant", "content": response_text})
