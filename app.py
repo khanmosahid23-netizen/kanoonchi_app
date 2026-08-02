@@ -108,7 +108,6 @@ def format_long_text(text):
 if 'mcq_answers_t1' not in st.session_state: st.session_state.mcq_answers_t1 = {}
 if 'mcq_answers_t3' not in st.session_state: st.session_state.mcq_answers_t3 = {}
 
-# Setup Permanent Library Directory & Smart Finder
 LIB_FOLDER = "kanoonchi_library"
 if not os.path.exists(LIB_FOLDER):
     os.makedirs(LIB_FOLDER)
@@ -191,28 +190,27 @@ with tab1:
 
 # --- TAB 2: AI TUTOR & PERMANENT LIBRARY ---
 with tab2:
-    st.header("Interactive Doubt Solver & Permanent Library")
+    st.header("Interactive Doubt Solver & Library")
     
-    st.markdown("### 🏛️ Kanoonchi Master Library Selection")
+    st.markdown("### 🏛️ Kanoonchi Master Library & Direct Upload")
     
-    # Smart Finder: Check both kanoonchi_library folder and main root folder
+    # Check folder files and root files automatically
     available_books = []
     if os.path.exists(LIB_FOLDER):
         available_books.extend([os.path.join(LIB_FOLDER, f) for f in os.listdir(LIB_FOLDER) if f.endswith(('.pdf', '.docx'))])
     
-    # Also check root directory for any loose books
     root_files = [f for f in os.listdir('.') if f.endswith(('.pdf', '.docx')) and f != "requirements.txt"]
     for rf in root_files:
         if rf not in available_books:
             available_books.append(rf)
 
+    # Option 1: Choose from existing library folder/files
     if available_books:
         book_names = [os.path.basename(b) for b in available_books]
-        selection_mode = st.radio("Choose Reference Mode:", ["Select Specific Book", "Reference from All Books in Library"])
+        selection_mode = st.radio("Choose Library Mode:", ["Select Specific Book", "Reference from All Books"])
         
         if selection_mode == "Select Specific Book":
             selected_book_name = st.selectbox("Choose a specific book/case file:", book_names)
-            # Find matching path
             selected_book_path = next((b for b in available_books if os.path.basename(b) == selected_book_name), available_books[0])
             
             if st.button(f"Load '{selected_book_name}' into AI Brain"):
@@ -221,7 +219,7 @@ with tab2:
                     st.session_state.reference_context = ref_text
                     st.success(f"✅ '{selected_book_name}' Loaded successfully into AI Brain!")
         else:
-            if st.button("Load & Reference ALL Books"):
+            if st.button("Load & Reference ALL Library Books"):
                 with st.spinner("Compiling and loading all books..."):
                     combined_all_text = ""
                     for b_path in available_books:
@@ -230,8 +228,16 @@ with tab2:
                         combined_all_text += f"\n--- [BOOK: {b_name}] ---\n" + txt
                     st.session_state.reference_context = combined_all_text
                     st.success("✅ All books loaded together into AI Brain!")
-    else:
-        st.warning("⚠️ No library books found! Make sure you pushed the PDF inside the 'kanoonchi_library' folder to GitHub using `git push`.")
+
+    st.markdown("---")
+    st.markdown("### 📂 Or Directly Upload Book Here")
+    direct_book = st.file_uploader("Upload PDF/DOCX for instant reference", type=["pdf", "docx"], key="direct_lib_up")
+    if direct_book:
+        if st.button("Load Uploaded Book into AI Brain"):
+            with st.spinner("Reading uploaded file..."):
+                ref_text, _ = extract_text(direct_book, limit_pages=30)
+                st.session_state.reference_context = ref_text
+                st.success(f"✅ '{direct_book.name}' Loaded successfully into AI Brain!")
 
     st.divider()
 
