@@ -53,7 +53,8 @@ def pil_to_base64(img):
 
 def generate_groq_response(prompt, img=None, json_mode=False):
     client = Groq(api_key=API_KEY)
-    model_name = "llama-3.2-11b-vision-preview" if img else "llama-3.3-70b-versatile" 
+    # Updated to use versatile model for both text and images to avoid decommissioning error
+    model_name = "llama-3.3-70b-versatile" 
     
     messages = [{"role": "user", "content": prompt}]
     if img:
@@ -194,7 +195,6 @@ with tab2:
     
     st.markdown("### 🏛️ Kanoonchi Master Library & Direct Upload")
     
-    # Check folder files and root files automatically
     available_books = []
     if os.path.exists(LIB_FOLDER):
         available_books.extend([os.path.join(LIB_FOLDER, f) for f in os.listdir(LIB_FOLDER) if f.endswith(('.pdf', '.docx'))])
@@ -204,7 +204,6 @@ with tab2:
         if rf not in available_books:
             available_books.append(rf)
 
-    # Option 1: Choose from existing library folder/files
     if available_books:
         book_names = [os.path.basename(b) for b in available_books]
         selection_mode = st.radio("Choose Library Mode:", ["Select Specific Book", "Reference from All Books"])
