@@ -21,6 +21,17 @@ except Exception:
 
 st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="wide")
 
+# --- HIDE STREAMLIT BRANDING, GITHUB LINK & HEADER/FOOTER ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            .stDeployButton {display:none;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -379,4 +390,3 @@ elif page == "📝 Custom PYQ Mock Test":
             
         if len(st.session_state.mcq_answers_t3) == len(st.session_state.t3_mcqs):
             st.info(f"🏆 Your Total Score: {score} out of {len(st.session_state.t3_mcqs)}")
-    
