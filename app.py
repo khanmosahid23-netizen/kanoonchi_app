@@ -12,15 +12,12 @@ from groq import Groq
 # ==========================================
 # 1. PAGE CONFIGURATION & CUSTOM STYLING
 # ==========================================
-st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="wide")
 
-# --- FIXED CSS: Hide GitHub/Deploy toolbar and footer, BUT keep the sidebar toggle visible ---
+# --- FIXED CSS: Only hide the Deploy button. Settings menu (Light/Dark mode) remains visible! ---
 hide_st_style = """
             <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
             .stDeployButton {display:none;}
-            [data-testid="stToolbar"] {visibility: hidden !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
@@ -53,8 +50,11 @@ if not st.session_state.authenticated:
 # ==========================================
 # 3. HELPER FUNCTIONS
 # ==========================================
+st.title("⚖️ KANOONCHI - Advanced Legal Prep")
+st.write("AIBE Preparation with Interactive Tests, Library & AI Chat")
+
 if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
-    st.sidebar.warning("⚠️ Configure your Groq API key in Streamlit Secrets.")
+    st.warning("⚠️ Configure your Groq API key in Streamlit Secrets.")
     st.stop()
 
 def pil_to_base64(img):
@@ -143,30 +143,14 @@ if not os.path.exists(LIB_FOLDER):
     os.makedirs(LIB_FOLDER)
 
 # ==========================================
-# 4. SIDEBAR NAVIGATION & APP STRUCTURE
+# 4. TABS NAVIGATION (Original Clean UI)
 # ==========================================
-
-# Sidebar header
-st.sidebar.title("⚖️ KANOONCHI Menu")
-st.sidebar.markdown("---")
-
-page = st.sidebar.radio(
-    "👉 Select a Feature:", 
-    ["📄 Notes to Test Generator", "💬 AI Tutor & Library Chat", "📝 Custom PYQ Mock Test"],
-    index=0
-)
-
-st.sidebar.markdown("---")
-st.sidebar.info("Built for Advanced Legal Preparation.")
-
-# Main title for the app
-st.title("⚖️ KANOONCHI - Advanced Legal Prep")
-st.markdown("---")
+tab1, tab2, tab3 = st.tabs(["📄 Notes to Test Generator", "💬 AI Tutor & Library Chat", "📝 Custom PYQ Mock Test"])
 
 # ==========================================
-# PAGE 1: NOTES TO TEST GENERATOR
+# TAB 1: NOTES TO TEST GENERATOR
 # ==========================================
-if page == "📄 Notes to Test Generator":
+with tab1:
     st.header("📄 Notes to Interactive Test Generator")
     st.write("Upload your study notes, bare acts, or chapters and generate smart interactive tests.")
 
@@ -252,9 +236,9 @@ if page == "📄 Notes to Test Generator":
             st.markdown(format_long_text(st.session_state.t1_long_a))
 
 # ==========================================
-# PAGE 2: AI TUTOR & LIBRARY CHAT
+# TAB 2: AI TUTOR & LIBRARY CHAT
 # ==========================================
-elif page == "💬 AI Tutor & Library Chat":
+with tab2:
     st.header("💬 AI Legal Tutor & Library Chat")
     st.write("Chat with your permanent library books or attach files/photos instantly.")
 
@@ -344,9 +328,9 @@ elif page == "💬 AI Tutor & Library Chat":
                     st.error(f"Error: {e}")
 
 # ==========================================
-# PAGE 3: CUSTOM PYQ MOCK TEST
+# TAB 3: CUSTOM PYQ MOCK TEST
 # ==========================================
-elif page == "📝 Custom PYQ Mock Test":
+with tab3:
     st.header("📝 Custom PYQ Mock Test Generator")
     st.write("Upload past exam papers and generate probable mock tests with automatic score tracking.")
     
@@ -406,4 +390,4 @@ elif page == "📝 Custom PYQ Mock Test":
             
         if len(st.session_state.mcq_answers_t3) == len(st.session_state.t3_mcqs):
             st.info(f"🏆 Your Total Score: {score} out of {len(st.session_state.t3_mcqs)}")
-                        
+                    
