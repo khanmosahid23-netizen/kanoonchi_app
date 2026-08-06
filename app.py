@@ -14,13 +14,13 @@ from groq import Groq
 # ==========================================
 st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="wide", initial_sidebar_state="expanded")
 
-# --- HIDE STREAMLIT BRANDING, GITHUB LINK & HEADER/FOOTER ---
+# --- FIXED CSS: Hide GitHub/Deploy toolbar and footer, BUT keep the sidebar toggle visible ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
             footer {visibility: hidden;}
             .stDeployButton {display:none;}
+            [data-testid="stToolbar"] {visibility: hidden !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
@@ -150,7 +150,6 @@ if not os.path.exists(LIB_FOLDER):
 st.sidebar.title("⚖️ KANOONCHI Menu")
 st.sidebar.markdown("---")
 
-# The Radio button ensures the slider/menu is always visible in the sidebar
 page = st.sidebar.radio(
     "👉 Select a Feature:", 
     ["📄 Notes to Test Generator", "💬 AI Tutor & Library Chat", "📝 Custom PYQ Mock Test"],
@@ -160,7 +159,7 @@ page = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.info("Built for Advanced Legal Preparation.")
 
-# Main title for the app (changes based on selection, but main heading remains)
+# Main title for the app
 st.title("⚖️ KANOONCHI - Advanced Legal Prep")
 st.markdown("---")
 
@@ -407,4 +406,4 @@ elif page == "📝 Custom PYQ Mock Test":
             
         if len(st.session_state.mcq_answers_t3) == len(st.session_state.t3_mcqs):
             st.info(f"🏆 Your Total Score: {score} out of {len(st.session_state.t3_mcqs)}")
-            
+                        
