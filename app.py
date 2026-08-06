@@ -10,16 +10,9 @@ import re
 from groq import Groq
 
 # ==========================================
-# 1. CONFIGURATION & SECURE LOGIN
+# 1. PAGE CONFIGURATION & CUSTOM STYLING
 # ==========================================
-MASTER_PIN = "7777"  # Secure PIN for Nayla
-
-try:
-    API_KEY = st.secrets["GROQ_API_KEY"]
-except Exception:
-    API_KEY = "YOUR_API_KEY_HERE"
-
-st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="KANOONCHI", page_icon="⚖️", layout="wide", initial_sidebar_state="expanded")
 
 # --- HIDE STREAMLIT BRANDING, GITHUB LINK & HEADER/FOOTER ---
 hide_st_style = """
@@ -31,6 +24,16 @@ hide_st_style = """
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
+
+# ==========================================
+# 2. SECURE LOGIN
+# ==========================================
+MASTER_PIN = "7777"  # Secure PIN for Nayla
+
+try:
+    API_KEY = st.secrets["GROQ_API_KEY"]
+except Exception:
+    API_KEY = "YOUR_API_KEY_HERE"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -48,13 +51,10 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ==========================================
-# 2. HELPER FUNCTIONS
+# 3. HELPER FUNCTIONS
 # ==========================================
-st.title("⚖️ KANOONCHI - Advanced Legal Prep")
-st.markdown("---")
-
 if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
-    st.warning("⚠️ Configure your Groq API key in Streamlit Secrets.")
+    st.sidebar.warning("⚠️ Configure your Groq API key in Streamlit Secrets.")
     st.stop()
 
 def pil_to_base64(img):
@@ -143,9 +143,26 @@ if not os.path.exists(LIB_FOLDER):
     os.makedirs(LIB_FOLDER)
 
 # ==========================================
-# 3. CLEAN MULTI-PAGE NAVIGATION SETUP
+# 4. SIDEBAR NAVIGATION & APP STRUCTURE
 # ==========================================
-page = st.sidebar.selectbox("📂 Choose Section", ["📄 Notes to Test Generator", "💬 AI Tutor & Library Chat", "📝 Custom PYQ Mock Test"])
+
+# Sidebar header
+st.sidebar.title("⚖️ KANOONCHI Menu")
+st.sidebar.markdown("---")
+
+# The Radio button ensures the slider/menu is always visible in the sidebar
+page = st.sidebar.radio(
+    "👉 Select a Feature:", 
+    ["📄 Notes to Test Generator", "💬 AI Tutor & Library Chat", "📝 Custom PYQ Mock Test"],
+    index=0
+)
+
+st.sidebar.markdown("---")
+st.sidebar.info("Built for Advanced Legal Preparation.")
+
+# Main title for the app (changes based on selection, but main heading remains)
+st.title("⚖️ KANOONCHI - Advanced Legal Prep")
+st.markdown("---")
 
 # ==========================================
 # PAGE 1: NOTES TO TEST GENERATOR
@@ -390,3 +407,4 @@ elif page == "📝 Custom PYQ Mock Test":
             
         if len(st.session_state.mcq_answers_t3) == len(st.session_state.t3_mcqs):
             st.info(f"🏆 Your Total Score: {score} out of {len(st.session_state.t3_mcqs)}")
+            
